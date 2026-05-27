@@ -1,0 +1,48 @@
+version: "3.9"
+services:
+  mongo:
+    image: mongo:7
+    container_name: vault_mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - vault_mongo_data:/data/db
+      - ./data/mongodb_dump:/import:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Dockerfile.backend
+    container_name: vault_backend
+    restart: unless-stopped
+    env_file:
+      - .env.backend
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    container_name: vault_frontend
+    restart: unless-stopped
+    env_file:
+      - .env.frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  vault_mongo_data:
